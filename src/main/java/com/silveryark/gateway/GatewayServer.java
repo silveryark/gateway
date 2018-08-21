@@ -20,19 +20,23 @@ import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import java.net.InetSocketAddress;
 
+/**
+ * 网关服务，负责服务起动，处理类注册以及服务关闭
+ */
 @Service
 public class GatewayServer {
 
+    public static final int READER_IDLE_TIME_SECONDS = 60;
+    public static final int SO_BACKLOG = 128;
+    private static final Logger LOGGER = LoggerFactory.getLogger(GatewayServer.class);
     private final NettyMqttIdleTimeoutHandler timeoutHandler;
     private final MQTTServerHandler serverHandler;
-
+    //监听端口(MQTT的端口)
     @Value("${server.port}")
     private int port;
-
+    //监听地址
     @Value("${server.address}")
     private String address;
-
-    private Logger logger = LoggerFactory.getLogger(getClass());
     private EventLoopGroup bossGroup = new NioEventLoopGroup();
     private EventLoopGroup workerGroup = new NioEventLoopGroup();
 
@@ -51,25 +55,34 @@ public class GatewayServer {
                     @Override
                     public void initChannel(SocketChannel ch) throws Exception {
                         ChannelPipeline pipeline = ch.pipeline();
-                        pipeline.addFirst("NettyIdleStateHandler", new IdleStateHandler(60, 0, 0));
+                        //处理心跳
+                        pipeline.addFirst("NettyIdleStateHandler", new IdleStateHandler(READER_IDLE_TIME_SECONDS, 0,
+                                0));
+                        //超时就触发断开
                         pipeline.addAfter("NettyIdleStateHandler", "NettyIdleStateEventHandler", timeoutHandler);
                         pipeline.addLast("MQTTDecoder", new MqttDecoder());
                         pipeline.addLast("MQTTEncoder", MqttEncoder.INSTANCE);
+                        //具体处理逻辑
                         pipeline.addLast("MQTTServerHandler", serverHandler);
 
                     }
                 })
-                .option(ChannelOption.SO_BACKLOG, 128)
+                //链接配置
+                .option(ChannelOption.SO_BACKLOG, SO_BACKLOG)
                 .childOption(ChannelOption.SO_KEEPALIVE, true)
                 .childOption(ChannelOption.SO_REUSEADDR, true)
                 .childOption(ChannelOption.TCP_NODELAY, true);
 
         // Bind and start to accept incoming connections.
-        b.bind(new InetSocketAddress(address, port)).addListener((ChannelFutureListener) channelFuture -> {
+        b.bind(new InetSocketAddress(address, port)).addListener((ChannelFuture channelFuture) -> {
             if (channelFuture.isSuccess()) {
-                logger.info("NettyServer Started Succeeded on {}:{}, registry is complete, waiting for client connect...", address, port);
+                LOGGER.info("NettyServer Started Succeeded on {}:{}, registry is complete, waiting for client " +
+                        "connect...", address, port);
             } else {
-                logger.error("NettyServer Started Failed on {}:{}, registry is incomplete {}", address, port, channelFuture.cause());
+                //如果失败就要退出，不然就sb了
+                LOGGER.error("NettyServer Started Failed on {}:{}, registry is incomplete {}", address, port,
+                        channelFuture.cause());
+                System.exit(1);
             }
         });
     }
