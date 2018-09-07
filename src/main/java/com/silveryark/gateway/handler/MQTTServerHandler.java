@@ -1,15 +1,15 @@
 package com.silveryark.gateway.handler;
 
 import com.silveryark.gateway.ChannelManager;
-import com.silveryark.gateway.Services;
 import com.silveryark.rpc.GenericRequest;
 import com.silveryark.rpc.GenericResponse;
 import com.silveryark.rpc.RPCHttpHeaders;
 import com.silveryark.rpc.RPCResponse;
 import com.silveryark.rpc.authentication.AuthorizeRequest;
-import com.silveryark.rpc.authorize.AuthorizeResponse;
+import com.silveryark.rpc.authentication.AuthorizeResponse;
 import com.silveryark.rpc.gateway.InboundMessage;
 import com.silveryark.rpc.serializer.InboundMessageSerializer;
+import com.silveryark.utils.Services;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
@@ -270,10 +270,6 @@ public class MQTTServerHandler extends ChannelInboundHandlerAdapter {
                         .body(BodyInserters.fromObject(genericRequest))
                         .retrieve()
                         .bodyToMono(GenericResponse.class)
-                        .map(r -> {
-                            System.out.println("RESPONSE!!!!!!" + r);
-                            return r;
-                        })
                         //只要收到STATUS 为 OK的消息，就说明在传输层上正确传输，如果业务层有问题也和传输层无关了
                         .map(rpcResponse -> new GenericResponse(gatewayRequest.getRequestId(), rpcResponse.getStatus(),
                                 rpcResponse.getStatus() == RPCResponse.STATUS.OK));
