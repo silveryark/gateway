@@ -26,24 +26,28 @@ public class ChannelManager {
 
     private static Map<Channel, String> tokens = new ConcurrentHashMap<>();
 
+    private static Map<Channel, String> uids = new ConcurrentHashMap<>();
+
     //用户logout或者掉线，这样就不带票了，而且已经认证过的topic都要踢掉
     public void unregister(Channel channel) {
         Lock writeLock = ChannelManager.lock.writeLock();
         try {
             writeLock.lock();
             tokens.remove(channel);
-            topicSubscriptions.entrySet().forEach(
-                    (Map.Entry<String, Set<Channel>> entry) -> entry.getValue().remove(channel));
+            uids.remove(channel);
+            topicSubscriptions.forEach((s, channels) ->
+                    channels.remove(channel));
         } finally {
             writeLock.unlock();
         }
     }
 
     //用户鉴权完毕保存
-    public void register(Channel channel, String token) {
+    public void register(Channel channel, String token, String uid) {
         Lock writeLock = ChannelManager.lock.writeLock();
         try {
             writeLock.lock();
+            uids.put(channel, uid);
             tokens.put(channel, token);
         } finally {
             writeLock.unlock();
@@ -56,6 +60,17 @@ public class ChannelManager {
         try {
             readLock.lock();
             return tokens.get(channel);
+        } finally {
+            readLock.unlock();
+        }
+    }
+
+    //取uid，给用户单独发消息的时候判断用
+    public String uid(Channel channel) {
+        Lock readLock = ChannelManager.lock.readLock();
+        try {
+            readLock.lock();
+            return uids.get(channel);
         } finally {
             readLock.unlock();
         }

@@ -145,7 +145,8 @@ public class MQTTServerHandler extends ChannelInboundHandlerAdapter {
                     //String的话就意味着这是一个token
                 } else if (authorizeResponse.getPayload() instanceof String) {
                     String token = (String) authorizeResponse.getPayload();
-                    channelManager.register(channel, token);
+                    String uid = authorizeResponse.getUid();
+                    channelManager.register(channel, token, uid);
                     if (connectPayload.willTopic() != null && connectPayload.willMessageInBytes() != null) {
                         LOGGER.debug("Connect message has payload to publish {}/{}", connectPayload.willTopic(),
                                 connectPayload.willMessageInBytes());

@@ -18,6 +18,7 @@ import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 /**
  * 处理下行消息，后端GS服务器如果要给客户端发消息的话会通过 ZeroMQ的broker发送消息（纯MQ模型）
@@ -85,6 +86,13 @@ public class GatewayConsumer {
                     } else {
                         channels = channelManager.allChannels();
                         LOGGER.debug("Gateway Recv broadcast message: {}", message);
+                    }
+                    String uid = outboundMessage.getUid();
+                    if (uid != null) {
+                        channels =
+                                channels.stream()
+                                        .filter(channel -> uid.contentEquals(channelManager.uid(channel)))
+                                        .collect(Collectors.toSet());
                     }
                     for (Channel channel : channels) {
                         channel.writeAndFlush(outboundMessage.getPayload());
